@@ -1,0 +1,5 @@
+.env
+.env.local
+*.swp
+*.swo
+node_modules/

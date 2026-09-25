@@ -1,0 +1,90 @@
+# Docker Compose configuration for Angular + MySQL stack
+# Updated to use .env file and init.sql
+
+services:
+  # ==========================================
+  # MYSQL SERVICE - The Database
+  # ==========================================
+  db:
+    image: mysql:8.0
+    container_name: mysql-container
+
+    # ==========================================
+    # ENVIRONMENT - Now using .env variables!
+    # ==========================================
+    environment:
+      # These values are read from .env file
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # Docker reads MYSQL_ROOT_PASSWORD from .env
+
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      # From .env: angular_db
+
+      MYSQL_USER: ${MYSQL_USER}
+      # From .env: angular_user
+
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+
+    # ==========================================
+    # VOLUMES - Now includes init.sql!
+    # ==========================================
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # Store data persistently
+
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      # THIS IS NEW! ↑
+      # ./init.sql: File on YOUR computer
+      # /docker-entrypoint-initdb.d/init.sql: Inside container
+      #
+      # Docker has a special feature:
+      # Any .sql files in /docker-entrypoint-initdb.d/
+      # automatically run when MySQL starts for the first time!
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      # Note: Using ${MYSQL_ROOT_PASSWORD} from .env
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: backend-container
+    environment:
+      DB_HOST: db
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy   # wait for the healthcheck, not just "started"
+    restart: unless-stopped
+
+  frontend:                        # ← 2 spaces, same level as "db:"
+    build:
+      context: ./frontend
+      target: dev
+    container_name: angular-container
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+    driver: local

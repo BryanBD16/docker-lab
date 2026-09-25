@@ -1,0 +1,11 @@
+<h1>Task Manager</h1>
+<ul>
+  @for (task of tasks(); track task.id) {
+    <li>
+      @if (task.is_completed) { ✅ } @else { ⬜ }
+      <strong>{{ task.title }}</strong> ({{ task.priority }})
+    </li>
+  } @empty {
+    <li>No tasks. Is the backend running?</li>
+  }
+</ul>
